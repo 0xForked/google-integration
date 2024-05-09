@@ -22,7 +22,7 @@ func createNewDBConn() *sql.DB {
 }
 
 var allowOrigins = []string{
-	"http://localhost:3000",
+	"http://localhost:5173",
 	"http://localhost:8000",
 }
 

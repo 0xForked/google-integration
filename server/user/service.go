@@ -7,14 +7,15 @@ import (
 	"time"
 
 	"github.com/0xForked/goca/server/hof"
-	"github.com/0xForked/goca/server/model"
 	"golang.org/x/oauth2"
 )
 
 type IUserService interface {
-	Profile(ctx context.Context, username string, withPassword bool) (*model.User, error)
+	Profile(ctx context.Context, username string, withPassword bool) (*User, error)
+	Availability(ctx context.Context, uid int) (*Availability, error)
+	EventType(ctx context.Context, uid int) ([]*EventType, error)
 	SaveGoogleToken(ctx context.Context, username string, googleToken *oauth2.Token) error
-	Login(ctx context.Context, form *model.LoginForm) (map[string]interface{}, error)
+	Login(ctx context.Context, form *LoginForm) (map[string]interface{}, error)
 }
 
 type service struct {
@@ -25,8 +26,8 @@ func (s service) Profile(
 	ctx context.Context,
 	username string,
 	withPassword bool,
-) (*model.User, error) {
-	user, err := s.repository.Find(ctx, username)
+) (*User, error) {
+	user, err := s.repository.FindUserProfile(ctx, username)
 	if err != nil {
 		return nil, err
 	}
@@ -34,6 +35,20 @@ func (s service) Profile(
 		user.Password = ""
 	}
 	return user, nil
+}
+
+func (s service) Availability(
+	ctx context.Context,
+	uid int,
+) (*Availability, error) {
+	return s.repository.FindUserAvailability(ctx, uid)
+}
+
+func (s service) EventType(
+	ctx context.Context,
+	uid int,
+) ([]*EventType, error) {
+	return s.repository.FindUserEventType(ctx, uid)
 }
 
 func (s service) SaveGoogleToken(
@@ -50,7 +65,7 @@ func (s service) SaveGoogleToken(
 
 func (s service) Login(
 	ctx context.Context,
-	form *model.LoginForm,
+	form *LoginForm,
 ) (map[string]interface{}, error) {
 	user, err := s.Profile(ctx, form.Username, true)
 	if err != nil {
@@ -83,7 +98,7 @@ func (s service) validatePassword(hash, userPwd string) error {
 }
 
 func (s service) generateToken(
-	user *model.User,
+	user *User,
 ) (at string, ate *time.Time, err error) {
 	jwtToken := hof.JSONWebToken{}
 	jwtToken.IssuedAt = time.Now()

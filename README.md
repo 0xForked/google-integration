@@ -1,4 +1,4 @@
-# Sample App
+# Sample Home
 
 Config:
 

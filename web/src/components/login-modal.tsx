@@ -20,14 +20,9 @@ interface LoginDialogProps {
 }
 
 export function LoginDialog(props: LoginDialogProps) {
-    const [
-        display,
-        setDisplay
-    ] = useState(false)
+    const [display, setDisplay] = useState(false)
 
-    useEffect(() => {
-        setDisplay(props.display)
-    }, [props])
+    useEffect(() => setDisplay(props.display), [props])
 
     const {
         register,

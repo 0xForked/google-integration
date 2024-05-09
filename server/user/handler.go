@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/0xForked/goca/server/hof"
-	"github.com/0xForked/goca/server/model"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/calendar/v3"
@@ -18,7 +17,7 @@ type handler struct {
 }
 
 func (h handler) login(ctx *gin.Context) {
-	var body model.LoginForm
+	var body LoginForm
 	if err := ctx.ShouldBind(&body); err != nil {
 		ctx.JSON(http.StatusUnprocessableEntity,
 			gin.H{"error": err.Error()})
@@ -69,7 +68,35 @@ func (h handler) profile(ctx *gin.Context) {
 		gin.H{"data": data})
 }
 
-func (h handler) calendar(ctx *gin.Context) {
+func (h handler) availability(ctx *gin.Context) {
+	var uid int
+	if id, ok := ctx.MustGet("uid").(float64); ok {
+		uid = int(id)
+	}
+	data, err := h.service.Availability(ctx, uid)
+	if err != nil {
+		ctx.JSON(http.StatusUnprocessableEntity,
+			gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"data": data})
+}
+
+func (h handler) eventType(ctx *gin.Context) {
+	var uid int
+	if id, ok := ctx.MustGet("uid").(float64); ok {
+		uid = int(id)
+	}
+	data, err := h.service.EventType(ctx, uid)
+	if err != nil {
+		ctx.JSON(http.StatusUnprocessableEntity,
+			gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"data": data})
+}
+
+func (h handler) event(ctx *gin.Context) {
 	cfg := hof.GetOAuthConfig()
 	var url string
 	tok := &oauth2.Token{}
@@ -147,6 +174,8 @@ func newUserHandler(
 	router.POST("/login", h.login)
 	router.POST("/logout", h.logout)
 	router.GET("/profile", hof.Auth, h.profile)
-	router.GET("/profile/calendar", hof.Auth, h.calendar)
+	router.GET("/profile/availabilities", hof.Auth, h.availability)
+	router.GET("/profile/event-types", hof.Auth, h.eventType)
+	router.GET("/profile/events", hof.Auth, h.event)
 	router.GET("/profile/:provider/exchange", hof.Auth, h.exchange)
 }
