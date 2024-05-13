@@ -1,6 +1,8 @@
 # Sample Google Calendar, Meet & OAuth Integration
 
-[![asciicast](./assets/ss.png)](./assets/sr.mov)
+<video width="100%" controls>
+  <source src="./assets/sr.mp4" type="video/mp4">
+</video>
 
 ### Config:
 
