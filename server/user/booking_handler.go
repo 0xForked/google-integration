@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/0xForked/goca/server/hof"
 	"github.com/gin-gonic/gin"
@@ -32,7 +33,22 @@ func (h bookingHandler) host(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, user)
 }
 
-func (h bookingHandler) schedule(ctx *gin.Context) {}
+func (h bookingHandler) schedule(ctx *gin.Context) {
+	bid := ctx.Param("id")
+	num, err := strconv.Atoi(bid)
+	if err != nil {
+		ctx.JSON(http.StatusUnprocessableEntity,
+			gin.H{"error": err.Error()})
+		return
+	}
+	booking, err := h.service.Booking(ctx, num)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest,
+			gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, booking)
+}
 
 func (h bookingHandler) add(ctx *gin.Context) {
 	var body BookingForm
@@ -91,9 +107,14 @@ func (h bookingHandler) add(ctx *gin.Context) {
 		email, body.Email, body.Date, body.Time, duration)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
 	}
-	ctx.JSON(http.StatusOK, event)
-	// TODO STORE database title, date with time (start & end), attendees, google meet link, notes
+	// insert booking data
+	id, err := h.service.NewBooking(ctx, user.ID, summary, &body, event)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+	}
+	ctx.JSON(http.StatusCreated, gin.H{"id": id})
 }
 
 func newBookingHandler(

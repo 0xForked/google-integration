@@ -118,38 +118,29 @@ function Home() {
                     </section>
 
                     <section className="border-2 p-4">
-                        <h1 className="text-xl font-bold">Events</h1>
+                        <h1 className="text-xl font-bold">Incoming Events</h1>
                         <hr className="my-4"/>
-                        <div className="grid grid-cols-2 divide-x-[1px]">
-                            <div className="px-4 flex flex-col gap-2">
-                                <h5 className="font-bold">
-                                    Scheduled
-                                </h5>
-                                <Accordion type="single" collapsible>
-                                    {scheduledEvents.map((item: any, index) => (
-                                        <AccordionItem className="border-b" value={item?.id} key={index}>
-                                            <AccordionTrigger>
-                                                <div className="flex flex-col items-center gap-2">
-                                                    <h5 className="text-sm font-bold text-gray-600">
-                                                        {item?.summary}
-                                                    </h5>
-                                                    <p className="ml-[-125px] text-xs font-light">
-                                                        {item?.hangoutLink}
-                                                    </p>
-                                                </div>
-                                            </AccordionTrigger>
-                                            <AccordionContent className="flex flex-col">
-                                                <pre>{JSON.stringify(item, null, 2)}</pre>
-                                            </AccordionContent>
-                                        </AccordionItem>
-                                    ))}
-                                </Accordion>
-                            </div>
-                            <div className="px-4 flex flex-col gap-2">
-                                <h5 className="font-bold">
-                                    Canceled
-                                </h5>
-                            </div>
+                        <div className="flex flex-col">
+                            {scheduledEvents.length == 0 && <div className="mx-auto">No Events</div>}
+                            {scheduledEvents &&  <Accordion type="single" collapsible>
+                                {scheduledEvents.map((item: any, index) => (
+                                    <AccordionItem className="border-b" value={item?.id} key={index}>
+                                        <AccordionTrigger>
+                                            <div className="flex flex-col items-center gap-2">
+                                                <h5 className="text-sm font-bold text-gray-600">
+                                                    {item?.summary}
+                                                </h5>
+                                                <p className="ml-[-125px] text-xs font-light">
+                                                    {item?.hangoutLink}
+                                                </p>
+                                            </div>
+                                        </AccordionTrigger>
+                                        <AccordionContent className="flex flex-col">
+                                            <pre>{JSON.stringify(item, null, 2)}</pre>
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                ))}
+                            </Accordion>}
                         </div>
                     </section>
                 </>}

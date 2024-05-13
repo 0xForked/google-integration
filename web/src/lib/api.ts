@@ -8,6 +8,7 @@ export const API_ENDPOINT = {
         EVENT_TYPE: `${API_URL}/profile/event-types`,
         EVENT: `${API_URL}/profile/events`,
         BOOKING: `${API_URL}/booking`,
+        SCHEDULE: `${API_URL}/schedule`,
         LOGOUT: `${API_URL}/logout`,
     },
 }
@@ -138,6 +139,21 @@ const newBooking = async (
     }
 }
 
+const getSchedule = async (id: string)  => {
+    try {
+        const response = await fetch(
+            API_ENDPOINT.USER.SCHEDULE+`/${id}`, {
+                method: "GET",
+                headers: {'Content-Type': 'application/json'},
+                credentials: 'include',
+            })
+        const content = await response.json();
+        return Promise.resolve(content)
+    } catch (e) {
+        return Promise.reject(e)
+    }
+}
+
 export  {
     signIn,
     signOut,
@@ -146,5 +162,6 @@ export  {
     getAvailability,
     getEventType,
     getBookingHost,
-    newBooking
+    newBooking,
+    getSchedule
 }

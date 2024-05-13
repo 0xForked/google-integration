@@ -4,6 +4,7 @@ import (
 	"database/sql"
 
 	"github.com/golodash/galidator"
+	"google.golang.org/api/calendar/v3"
 )
 
 type User struct {
@@ -42,6 +43,20 @@ type EventType struct {
 	Description    string        `json:"description"`
 	Duration       int           `json:"duration"` // duration in minute
 	Availability   *Availability `json:"availability,omitempty"`
+}
+
+type Booking struct {
+	ID          string          `json:"id"`
+	UserID      int             `json:"-"`
+	EventTypeID int             `json:"-"`
+	Title       string          `json:"title"`
+	Notes       string          `json:"notes"`
+	Name        string          `json:"name"`
+	Email       string          `json:"email"`
+	Date        int64           `json:"date"`
+	Time        int             `json:"time"`
+	Event       []byte          `json:"-"`
+	EventDetail *calendar.Event `json:"event_detail"`
 }
 
 type LoginForm struct {

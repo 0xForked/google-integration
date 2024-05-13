@@ -1,4 +1,6 @@
-# Sample Home
+# Sample Google Calendar, Meet & OAuth Integration
+
+[![asciicast](./assets/ss.png)](./assets/sr.mov)
 
 ### Config:
 

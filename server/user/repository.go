@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"time"
 )
 
 type ISQLRepository interface {
@@ -22,11 +23,19 @@ type ISQLRepository interface {
 		ctx context.Context,
 		uid int,
 	) ([]*EventType, error)
-	Update(
+	UpdateUser(
 		ctx context.Context,
 		username string,
 		token []byte,
 	) error
+	FindBooking(
+		ctx context.Context,
+		bookingID int,
+	) (*Booking, error)
+	InsertBooking(
+		ctx context.Context,
+		booking *Booking,
+	) (int, error)
 }
 
 type sqlRepository struct {
@@ -168,7 +177,7 @@ func (s sqlRepository) FindUserEventType(
 }
 
 //goland:noinspection ALL
-func (s sqlRepository) Update(
+func (s sqlRepository) UpdateUser(
 	ctx context.Context,
 	username string,
 	token []byte,
@@ -179,6 +188,47 @@ func (s sqlRepository) Update(
 		return err
 	}
 	return nil
+}
+
+//goland:noinspection ALL
+func (s sqlRepository) FindBooking(
+	ctx context.Context,
+	bookingID int,
+) (*Booking, error) {
+	q := "SELECT id, title, notes, name, email, date, time, event FROM bookings WHERE id = ?"
+	row := s.db.QueryRowContext(ctx, q, bookingID)
+	var booking Booking
+	var bookingJSON []byte
+	err := row.Scan(&booking.ID, &booking.Title, &booking.Notes,
+		&booking.Name, &booking.Email, &booking.Date, &booking.Time, &bookingJSON)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf(
+				"booking with id %s not found",
+				bookingID)
+		}
+		return nil, err
+	}
+	if err := json.Unmarshal(bookingJSON, &booking.EventDetail); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal availability_days: %v", err)
+	}
+	return &booking, nil
+}
+
+//goland:noinspection ALL
+func (s sqlRepository) InsertBooking(
+	ctx context.Context,
+	booking *Booking,
+) (int, error) {
+	q := "INSERT INTO bookings (user_id, event_type_id, title, notes, name, email, date, time, event, created_at) "
+	q += "values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id"
+	row := s.db.QueryRowContext(ctx, q, booking.UserID, booking.EventTypeID, booking.Title,
+		booking.Notes, booking.Name, booking.Email, booking.Date, booking.Time, booking.Event, time.Now().Unix())
+	var id int
+	if err := row.Scan(&id); err != nil {
+		return 0, err
+	}
+	return id, nil
 }
 
 func newSQLRepository(db *sql.DB) ISQLRepository {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/0xForked/goca/server/hof"
 	"golang.org/x/oauth2"
+	"google.golang.org/api/calendar/v3"
 )
 
 type IUserService interface {
@@ -16,6 +17,8 @@ type IUserService interface {
 	EventType(ctx context.Context, uid int) ([]*EventType, error)
 	SaveGoogleToken(ctx context.Context, username string, googleToken *oauth2.Token) error
 	Login(ctx context.Context, form *LoginForm) (map[string]interface{}, error)
+	Booking(ctx context.Context, uid int) (*Booking, error)
+	NewBooking(ctx context.Context, userID int, title string, form *BookingForm, event *calendar.Event) (int, error)
 }
 
 type service struct {
@@ -60,7 +63,7 @@ func (s service) SaveGoogleToken(
 	if err != nil {
 		return err
 	}
-	return s.repository.Update(ctx, username, data)
+	return s.repository.UpdateUser(ctx, username, data)
 }
 
 func (s service) Login(
@@ -112,6 +115,35 @@ func (s service) generateToken(
 		return "", nil, err
 	}
 	return accessToken, &tokenExpiredIn, nil
+}
+
+func (s service) Booking(ctx context.Context, uid int) (*Booking, error) {
+	return s.repository.FindBooking(ctx, uid)
+}
+
+func (s service) NewBooking(
+	ctx context.Context,
+	userID int,
+	title string,
+	form *BookingForm,
+	event *calendar.Event,
+) (int, error) {
+	newEvent, err := json.Marshal(event)
+	if err != nil {
+		return 0, err
+	}
+	newBooking := Booking{
+		UserID:      userID,
+		EventTypeID: form.EventTypeID,
+		Title:       title,
+		Notes:       form.Notes,
+		Name:        form.Name,
+		Email:       form.Email,
+		Date:        form.Date,
+		Time:        form.Time,
+		Event:       newEvent,
+	}
+	return s.repository.InsertBooking(ctx, &newBooking)
 }
 
 func newUserService(

@@ -55,8 +55,9 @@ export function BookingFormModal(props: BookingFormDialogProps) {
             stringTimeToInt(props.time!), data.name,
             data.email, data.notes,
         ).then((resp) => {
-            console.log(resp)
-            navigate("/schedule/1")
+            if (resp.id) {
+                navigate(`/schedule/${resp.id}`)
+            }
         }).catch((err) => console.log(err))
     }
 
