@@ -10,14 +10,22 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/calendar/v3"
+	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/option"
 	"google.golang.org/api/people/v1"
 )
 
-func GetProfileData(
-	svr *people.Service,
+func GetUserDisplayName(
+	ctx context.Context,
+	token *oauth2.Token,
+	config *oauth2.Config,
 ) (string, error) {
-	profile, err := svr.People.Get("people/me").
+	client := config.Client(ctx, token)
+	srv, err := people.NewService(ctx, option.WithHTTPClient(client))
+	if err != nil {
+		return "", fmt.Errorf("Unable to retrieve Calendar client: %v", err)
+	}
+	profile, err := srv.People.Get("people/me").
 		PersonFields("names,emailAddresses").Do()
 	if err != nil {
 		return "", fmt.Errorf("unable to retrieve user profile: %v", err)
@@ -28,17 +36,65 @@ func GetProfileData(
 	return profile.Names[0].DisplayName, nil
 }
 
-func GetPeopleService(
+func GetUserEmail(
 	ctx context.Context,
-	tok *oauth2.Token,
+	token *oauth2.Token,
 	config *oauth2.Config,
-) *people.Service {
-	client := config.Client(ctx, tok)
-	srv, err := people.NewService(ctx, option.WithHTTPClient(client))
+) (string, error) {
+	client := config.Client(ctx, token)
+	svc, err := gmail.NewService(context.Background(), option.WithHTTPClient(client))
 	if err != nil {
-		log.Fatalf("Unable to retrieve Calendar client: %v", err)
+		return "", fmt.Errorf("unable to create Gmail service: %v", err)
 	}
-	return srv
+	profile, err := svc.Users.GetProfile("me").Do()
+	if err != nil {
+		return "", fmt.Errorf("unable to retrieve user's profile: %v", err)
+	}
+	return profile.EmailAddress, nil
+}
+
+func SetNewMeeting(
+	svr *calendar.Service,
+	summary, description,
+	timezone, oEmail, cEmail string,
+	date int64, timeInt, duration int,
+) (*calendar.Event, error) {
+	randStr, err := generateRandomString(12)
+	if err != nil {
+		log.Fatalf("Unable to generate random string: %v", err)
+	}
+	loc, err := time.LoadLocation(timezone)
+	if err != nil {
+		log.Fatalf("Unable to load timezone: %v", err)
+	}
+	dateObj := time.Unix(date, 0).In(loc)
+	dateObj = time.Date(dateObj.Year(), dateObj.Month(), dateObj.Day(), 0, 0, 0, 0, loc)
+	dateObj = dateObj.Add(time.Duration(timeInt/100) * time.Hour)
+	dateObj = dateObj.Add(time.Duration(timeInt%100) * time.Minute)
+	endObj := dateObj.Add(time.Duration(duration) * time.Minute)
+	event := &calendar.Event{
+		Summary:     summary,
+		Description: description,
+		Start: &calendar.EventDateTime{
+			DateTime: dateObj.Format(time.RFC3339),
+			TimeZone: loc.String(),
+		},
+		End: &calendar.EventDateTime{
+			DateTime: endObj.Format(time.RFC3339),
+			TimeZone: loc.String(),
+		},
+		Attendees: []*calendar.EventAttendee{
+			{Email: oEmail, Organizer: true, ResponseStatus: "accepted"},
+			{Email: cEmail, ResponseStatus: "accepted"},
+		},
+		ConferenceData: &calendar.ConferenceData{
+			CreateRequest: &calendar.CreateConferenceRequest{
+				RequestId: randStr,
+			},
+		},
+	}
+	return svr.Events.Insert("primary", event).
+		ConferenceDataVersion(1).Do()
 }
 
 func GetCalendarData(
@@ -80,7 +136,9 @@ func GetOAuthConfig() *oauth2.Config {
 	}
 	config, err := google.ConfigFromJSON(b,
 		calendar.CalendarReadonlyScope,
-		people.UserinfoProfileScope)
+		calendar.CalendarEventsScope,
+		people.UserinfoProfileScope,
+		gmail.GmailReadonlyScope)
 	if err != nil {
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
 	}

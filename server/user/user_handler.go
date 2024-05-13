@@ -130,8 +130,13 @@ func (h handler) event(ctx *gin.Context) {
 		return
 	}
 	// get user profile from oauth
-	peopleService := hof.GetPeopleService(ctx, tok, cfg)
-	profile, err := hof.GetProfileData(peopleService)
+	displayName, err := hof.GetUserDisplayName(ctx, tok, cfg)
+	if err != nil {
+		ctx.JSON(http.StatusUnprocessableEntity,
+			gin.H{"error": err.Error()})
+		return
+	}
+	email, err := hof.GetUserEmail(ctx, tok, cfg)
 	if err != nil {
 		ctx.JSON(http.StatusUnprocessableEntity,
 			gin.H{"error": err.Error()})
@@ -139,8 +144,10 @@ func (h handler) event(ctx *gin.Context) {
 	}
 	//return data
 	ctx.JSON(http.StatusOK, gin.H{
-		"name":   profile,
-		"events": event,
+		"name":      displayName,
+		"email":     email,
+		"scheduled": event,
+		"canceled":  "",
 	})
 }
 

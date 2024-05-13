@@ -1,6 +1,7 @@
 interface User {
-    id: number,
+    id: number
     username: string
+    event_types?: EventType[]
 }
 
 interface Availability {

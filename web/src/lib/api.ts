@@ -7,6 +7,7 @@ export const API_ENDPOINT = {
         AVAILABILITY: `${API_URL}/profile/availabilities`,
         EVENT_TYPE: `${API_URL}/profile/event-types`,
         EVENT: `${API_URL}/profile/events`,
+        BOOKING: `${API_URL}/booking`,
         LOGOUT: `${API_URL}/logout`,
     },
 }
@@ -95,11 +96,55 @@ const getEventType = async () => {
     }
 }
 
+const getBookingHost = async (username: string)  => {
+    try {
+        const response = await fetch(
+            API_ENDPOINT.USER.BOOKING+`/${username}`, {
+            method: "GET",
+            headers: {'Content-Type': 'application/json'},
+            credentials: 'include',
+        })
+        const content = await response.json();
+        return Promise.resolve(content)
+    } catch (e) {
+        return Promise.reject(e)
+    }
+}
+
+const newBooking = async (
+    username: string,
+    event_type_id: number,
+    date: number,
+    time: number,
+    name: string,
+    email: string,
+    notes?: string,
+)  => {
+    try {
+        const response = await fetch(
+            API_ENDPOINT.USER.BOOKING, {
+                method: "POST",
+                headers: {'Content-Type': 'application/json'},
+                credentials: 'include',
+                body: JSON.stringify({
+                    username, event_type_id, date,
+                    time, name, email, notes
+                })
+            })
+        const content = await response.json();
+        return Promise.resolve(content)
+    } catch (e) {
+        return Promise.reject(e)
+    }
+}
+
 export  {
     signIn,
     signOut,
     getProfile,
     getEvent,
     getAvailability,
-    getEventType
+    getEventType,
+    getBookingHost,
+    newBooking
 }

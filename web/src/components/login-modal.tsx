@@ -9,7 +9,7 @@ import {
 import {Label} from "@/components/ui/label.tsx";
 import {Input} from "@/components/ui/input.tsx";
 import {Loader2} from "lucide-react";
-import {loginSchema, TLoginSchema} from "@/lib/login-schema.ts";
+import {loginSchema, TLoginSchema} from "@/lib/schema.ts";
 import {useForm} from "react-hook-form";
 import {yupResolver} from '@hookform/resolvers/yup';
 import {Button} from "@/components/ui/button.tsx";
@@ -73,7 +73,7 @@ export function LoginDialog(props: LoginDialogProps) {
                                     {...register('username')}
                                 />
                                 <p className={`text-sm text-muted-foreground ${errors?.username ? "text-red-500" : ""}`}>
-                                    {errors?.username ? errors?.username?.message : "Enter your username address"}
+                                    {errors?.username ? errors?.username?.message : "Enter your username"}
                                 </p>
                             </div>
                         </div>

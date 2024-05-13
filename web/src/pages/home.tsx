@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu.tsx";
 import {AvailabilityModal} from "@/components/availability-modal.tsx";
 import {EventTypeModal} from "@/components/event-modal.tsx";
+import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "@/components/ui/accordion.tsx";
 
 function Home() {
     const [displayLoginDialog, setDisplayLoginDialog] = useState(false)
@@ -17,7 +18,9 @@ function Home() {
     const [displayEventTypeDialog, setDisplayEventTypeDialog] = useState(false)
     const [user, setUser] = useState<User | null>(null)
     const [authUrl, setAuthUrl] = useState<string | null>(null)
-    const [oAuthProfileName, setOAuthProfileName] = useState<string | null>(null)
+    const [oAuthDisplayName, setOAuthDisplayName] = useState<string | null>(null)
+    const [oAuthEmail, setOAuthEmail] = useState<string | null>(null)
+    const [scheduledEvents, setScheduledEvents] = useState([]);
 
     useEffect(() => getUser(), [])
 
@@ -37,8 +40,12 @@ function Home() {
             if (resp.auth_url != "" ) {
                 setAuthUrl(resp.auth_url)
             }
-            if (resp.name != "" ) {
-                setOAuthProfileName(resp.name)
+            if (resp.name != "" || resp.email != "") {
+                setOAuthDisplayName(resp.name)
+                setOAuthEmail(resp.email)
+            }
+            if (resp.scheduled) {
+                setScheduledEvents(resp.scheduled)
             }
         }).catch((error) => alert(error))
     }
@@ -105,14 +112,45 @@ function Home() {
                             {authUrl && <Button
                                 onClick={() => openInNewTab(authUrl)}
                             >Connect with Google</Button>}
-                            <h5 className="text-lg">{oAuthProfileName}</h5>
+                            <h5 className="text-lg">{oAuthDisplayName}</h5>
+                            <h5 className="text-lg">{oAuthEmail}</h5>
                         </div>
                     </section>
 
                     <section className="border-2 p-4">
                         <h1 className="text-xl font-bold">Events</h1>
                         <hr className="my-4"/>
-                        test . . .
+                        <div className="grid grid-cols-2 divide-x-[1px]">
+                            <div className="px-4 flex flex-col gap-2">
+                                <h5 className="font-bold">
+                                    Scheduled
+                                </h5>
+                                <Accordion type="single" collapsible>
+                                    {scheduledEvents.map((item: any, index) => (
+                                        <AccordionItem className="border-b" value={item?.id} key={index}>
+                                            <AccordionTrigger>
+                                                <div className="flex flex-col items-center gap-2">
+                                                    <h5 className="text-sm font-bold text-gray-600">
+                                                        {item?.summary}
+                                                    </h5>
+                                                    <p className="ml-[-125px] text-xs font-light">
+                                                        {item?.hangoutLink}
+                                                    </p>
+                                                </div>
+                                            </AccordionTrigger>
+                                            <AccordionContent className="flex flex-col">
+                                                <pre>{JSON.stringify(item, null, 2)}</pre>
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    ))}
+                                </Accordion>
+                            </div>
+                            <div className="px-4 flex flex-col gap-2">
+                                <h5 className="font-bold">
+                                    Canceled
+                                </h5>
+                            </div>
+                        </div>
                     </section>
                 </>}
             </main>

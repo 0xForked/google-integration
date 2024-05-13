@@ -40,3 +40,59 @@ export const intToTime = (timeInt: number): string => {
     const formattedHour = hour % 12 || 12;
     return `${formattedHour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}${period}`;
 }
+
+export function generateTimeRange(startTime: number, endTime: number, stepMinutes: number): string[] {
+    const times: string[] = [];
+    let currentTime = new Date();
+    currentTime.setHours(Math.floor(startTime / 100), startTime % 100, 0, 0);
+    while (currentTime.getHours() * 100 + currentTime.getMinutes() <= endTime) {
+        const formattedTime = currentTime.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        });
+        times.push(formattedTime);
+        currentTime.setMinutes(currentTime.getMinutes() + stepMinutes);
+    }
+    return times;
+}
+
+export function isSameDay(selectedDate: Date): boolean {
+    const today = new Date()
+    return today.getFullYear() === selectedDate.getFullYear() &&
+        today.getMonth() === selectedDate.getMonth() &&
+        today.getDate() === selectedDate.getDate();
+}
+
+export function isGreaterThanMaxEndTime(currentTime: Date, maxEndTime: number): boolean {
+    const currentHour = currentTime.getHours() * 100 + currentTime.getMinutes();
+    return currentHour > maxEndTime;
+}
+
+export const getInitialDate = () => {
+    const today = new Date();
+    if (today.getDay() == 0) {
+        today.setDate(today.getDate() + 1);
+    }
+    if (today.getDay() == 6) {
+        today.setDate(today.getDate() + 2);
+    }
+    return new Date(today);
+};
+
+export const stringTimeToInt = (str: string) => {
+    const [hours, minutes] = str.split(":");
+    return  parseInt(hours + minutes, 10);
+}
+
+export const addMinutes = (timeString: string, duration: number) => {
+    const [hours, minutesString] = timeString.split(':');
+    const minutes = parseInt(minutesString);
+    const totalMinutes = minutes + duration;
+    const newMinutes = totalMinutes % 60;
+    const newHours = Math.floor((totalMinutes - newMinutes) / 60) + parseInt(hours);
+    const finalHours = newHours % 24;
+    const newHoursString = String(finalHours).padStart(2, '0');
+    const newMinutesString = String(newMinutes).padStart(2, '0');
+    return `${newHoursString}:${newMinutesString}`;
+}

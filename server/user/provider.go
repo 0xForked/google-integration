@@ -13,4 +13,5 @@ func NewUserModuleProvider(
 	repo := newSQLRepository(db)
 	svc := newUserService(repo)
 	newUserHandler(svc, rg)
+	newBookingHandler(svc, rg)
 }
