@@ -1,10 +1,8 @@
 # Sample Google Calendar, Meet & OAuth Integration
 
-<div style="display: grid;grid-template-columns: repeat(3, 1fr);">
-<img src="./assets/ss1.png" alt="ss1"/> 
-<img src="./assets/ss2.png" alt="ss1"/> 
-<img src="./assets/ss3.png" alt="ss1"/> 
-</div>
+<img style="width: 200px;" src="./assets/ss1.png" alt="ss1"/> 
+<img style="width: 200px;" src="./assets/ss2.png" alt="ss1"/> 
+<img style="width: 200px;" src="./assets/ss3.png" alt="ss1"/> 
 
 ### Config:
 
