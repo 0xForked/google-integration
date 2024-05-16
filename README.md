@@ -1,8 +1,6 @@
 # Sample Google Calendar, Meet & OAuth Integration
 
-<img style="width: 200px;" src="./assets/ss1.png" alt="ss1"/> 
-<img style="width: 200px;" src="./assets/ss2.png" alt="ss1"/> 
-<img style="width: 200px;" src="./assets/ss3.png" alt="ss1"/> 
+<img src="./assets/preview.gif" alt="preview"/> 
 
 ### Config:
 
