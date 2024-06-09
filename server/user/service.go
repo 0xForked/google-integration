@@ -14,8 +14,9 @@ import (
 type IUserService interface {
 	Profile(ctx context.Context, username string, withPassword bool) (*User, error)
 	Availability(ctx context.Context, uid int) (*Availability, error)
-	EventType(ctx context.Context, uid int) ([]*EventType, error)
+	EventType(ctx context.Context, uid int, uname string) ([]*EventType, error)
 	SaveGoogleToken(ctx context.Context, username string, googleToken *oauth2.Token) error
+	SaveMicrosoftToken(ctx context.Context, username string, microsoftToken *oauth2.Token) error
 	Login(ctx context.Context, form *LoginForm) (map[string]interface{}, error)
 	Booking(ctx context.Context, uid int) (*Booking, error)
 	NewBooking(ctx context.Context, userID int, title string, form *BookingForm, event *calendar.Event) (int, error)
@@ -50,8 +51,21 @@ func (s service) Availability(
 func (s service) EventType(
 	ctx context.Context,
 	uid int,
+	uname string,
 ) ([]*EventType, error) {
-	return s.repository.FindUserEventType(ctx, uid)
+	user, err := s.repository.FindUserProfile(ctx, uname)
+	if err != nil {
+		return nil, err
+	}
+	eventTypes, err := s.repository.FindUserEventType(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	for _, eventType := range eventTypes {
+		eventType.IsGoogleAvailable = user.GoogleToken.Valid
+		eventType.IsMicrosoftAvailable = user.MicrosoftToken.Valid
+	}
+	return eventTypes, nil
 }
 
 func (s service) SaveGoogleToken(
@@ -63,7 +77,21 @@ func (s service) SaveGoogleToken(
 	if err != nil {
 		return err
 	}
-	return s.repository.UpdateUser(ctx, username, data)
+	return s.repository.UpdateUser(
+		ctx, username, "google_token", data)
+}
+
+func (s service) SaveMicrosoftToken(
+	ctx context.Context,
+	username string,
+	microsoftToken *oauth2.Token,
+) error {
+	data, err := json.Marshal(microsoftToken)
+	if err != nil {
+		return err
+	}
+	return s.repository.UpdateUser(
+		ctx, username, "microsoft_token", data)
 }
 
 func (s service) Login(

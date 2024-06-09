@@ -26,7 +26,8 @@ type ISQLRepository interface {
 	UpdateUser(
 		ctx context.Context,
 		username string,
-		token []byte,
+		tokenType string,
+		tokenValue []byte,
 	) error
 	FindBooking(
 		ctx context.Context,
@@ -47,11 +48,12 @@ func (s sqlRepository) FindUserProfile(
 	ctx context.Context,
 	username string,
 ) (*User, error) {
-	q := "SELECT id, username, password, google_token FROM users WHERE username = ?"
+	q := "SELECT id, username, password, google_token, microsoft_token "
+	q += "FROM users WHERE username = ?"
 	row := s.db.QueryRowContext(ctx, q, username)
 	var user User
 	err := row.Scan(&user.ID, &user.Username,
-		&user.Password, &user.Token)
+		&user.Password, &user.GoogleToken, &user.MicrosoftToken)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf(
@@ -138,7 +140,7 @@ func (s sqlRepository) FindUserEventType(
             FROM availability_days AS ad
             WHERE ad.availability_id = a.id
         ) AS availability_days
-	FROM event_types AS et 
+	FROM event_types AS et
 	LEFT JOIN availabilities AS a ON et.availability_id = a.id
 	WHERE et.user_id = ?`
 	rows, err := s.db.QueryContext(ctx, q, uid)
@@ -180,10 +182,13 @@ func (s sqlRepository) FindUserEventType(
 func (s sqlRepository) UpdateUser(
 	ctx context.Context,
 	username string,
-	token []byte,
+	tokenType string,
+	tokenValue []byte,
 ) error {
-	q := "UPDATE users SET google_token = ? WHERE username = ?"
-	_, err := s.db.ExecContext(ctx, q, token, username)
+	// google_token || microsoft_token
+	q := "UPDATE users SET "
+	q += fmt.Sprintf("%s = ? WHERE username = ?", tokenType)
+	_, err := s.db.ExecContext(ctx, q, tokenValue, username)
 	if err != nil {
 		return err
 	}
@@ -204,7 +209,7 @@ func (s sqlRepository) FindBooking(
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf(
-				"booking with id %s not found",
+				"booking with id %d not found",
 				bookingID)
 		}
 		return nil, err

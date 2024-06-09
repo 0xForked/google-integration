@@ -8,12 +8,13 @@ import (
 )
 
 type User struct {
-	ID           int            `json:"id"`
-	Username     string         `json:"username"`
-	Password     string         `json:"password,omitempty"`
-	Token        sql.NullString `json:"-"`
-	Availability *Availability  `json:"availability,omitempty"`
-	EventTypes   []*EventType   `json:"event_types,omitempty"`
+	ID             int            `json:"id"`
+	Username       string         `json:"username"`
+	Password       string         `json:"password,omitempty"`
+	GoogleToken    sql.NullString `json:"-"`
+	MicrosoftToken sql.NullString `json:"-"`
+	Availability   *Availability  `json:"availability,omitempty"`
+	EventTypes     []*EventType   `json:"event_types,omitempty"`
 }
 
 type Availability struct {
@@ -35,14 +36,16 @@ type AvailabilityDay struct {
 }
 
 type EventType struct {
-	ID             int           `json:"id"`
-	UserID         int           `json:"-"`
-	AvailabilityID int           `json:"-"`
-	Enable         int           `json:"enable"`
-	Title          string        `json:"title"`
-	Description    string        `json:"description"`
-	Duration       int           `json:"duration"` // duration in minute
-	Availability   *Availability `json:"availability,omitempty"`
+	ID                   int           `json:"id"`
+	UserID               int           `json:"-"`
+	AvailabilityID       int           `json:"-"`
+	Enable               int           `json:"enable"`
+	Title                string        `json:"title"`
+	Description          string        `json:"description"`
+	Duration             int           `json:"duration"` // duration in minute
+	Availability         *Availability `json:"availability,omitempty"`
+	IsGoogleAvailable    bool          `json:"is_google_available"`
+	IsMicrosoftAvailable bool          `json:"is_microsoft_available"`
 }
 
 type Booking struct {

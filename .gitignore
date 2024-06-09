@@ -19,3 +19,5 @@ coverage.txt
 .DS_Store
 google.json
 google-token.json
+microsoft.json
+microsoft-token.json

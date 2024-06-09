@@ -15,7 +15,7 @@ import (
 	"google.golang.org/api/people/v1"
 )
 
-func GetUserDisplayName(
+func GetGoogleUserDisplayName(
 	ctx context.Context,
 	token *oauth2.Token,
 	config *oauth2.Config,
@@ -23,7 +23,7 @@ func GetUserDisplayName(
 	client := config.Client(ctx, token)
 	srv, err := people.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
-		return "", fmt.Errorf("Unable to retrieve Calendar client: %v", err)
+		return "", fmt.Errorf("unable to retrieve Calendar client: %v", err)
 	}
 	profile, err := srv.People.Get("people/me").
 		PersonFields("names,emailAddresses").Do()
@@ -36,7 +36,7 @@ func GetUserDisplayName(
 	return profile.Names[0].DisplayName, nil
 }
 
-func GetUserEmail(
+func GetGoogleUserEmail(
 	ctx context.Context,
 	token *oauth2.Token,
 	config *oauth2.Config,
@@ -53,7 +53,7 @@ func GetUserEmail(
 	return profile.EmailAddress, nil
 }
 
-func SetNewMeeting(
+func SetGoogleNewMeeting(
 	svr *calendar.Service,
 	summary, description,
 	timezone, oEmail, cEmail string,
@@ -97,7 +97,7 @@ func SetNewMeeting(
 		ConferenceDataVersion(1).Do()
 }
 
-func GetCalendarData(
+func GetGoogleCalendarData(
 	svr *calendar.Service,
 ) ([]*calendar.Event, error) {
 	t := time.Now().Format(time.RFC3339)
@@ -116,7 +116,7 @@ func GetCalendarData(
 	return events.Items, nil
 }
 
-func GetCalendarService(
+func GetGoogleCalendarService(
 	ctx context.Context,
 	tok *oauth2.Token,
 	config *oauth2.Config,
@@ -129,7 +129,7 @@ func GetCalendarService(
 	return srv
 }
 
-func GetOAuthConfig() *oauth2.Config {
+func GetGoogleOAuthConfig() *oauth2.Config {
 	b, err := os.ReadFile("google.json")
 	if err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
@@ -145,7 +145,7 @@ func GetOAuthConfig() *oauth2.Config {
 	return config
 }
 
-func GetOAuthTokenFromWeb(config *oauth2.Config) (string, *oauth2.Token) {
+func GetGoogleOAuthTokenFromWeb(config *oauth2.Config) (string, *oauth2.Token) {
 	authURL := config.AuthCodeURL(
 		"state-token", oauth2.AccessTypeOffline)
 	if authURL != "" {

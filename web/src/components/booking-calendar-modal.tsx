@@ -110,6 +110,7 @@ export function BookingCalendarModal(props: BookingCalendarDialogProps) {
                     <p className="text-sm font-light flex items-center">
                         <Video className="w-[12px] h-[12px] mr-2"/>
                         Google Meet
+                        Microsoft Team
                     </p>
                     <p className="text-sm font-light flex items-center">
                         <Globe className="w-[12px] h-[12px] mr-2"/>

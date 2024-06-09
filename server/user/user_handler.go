@@ -3,6 +3,7 @@ package user
 import (
 	"encoding/json"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/0xForked/goca/server/hof"
@@ -87,7 +88,11 @@ func (h handler) eventType(ctx *gin.Context) {
 	if id, ok := ctx.MustGet("uid").(float64); ok {
 		uid = int(id)
 	}
-	data, err := h.service.EventType(ctx, uid)
+	var username string
+	if uname, ok := ctx.MustGet("uname").(string); ok {
+		username = uname
+	}
+	data, err := h.service.EventType(ctx, uid, username)
 	if err != nil {
 		ctx.JSON(http.StatusUnprocessableEntity,
 			gin.H{"error": err.Error()})
@@ -97,66 +102,143 @@ func (h handler) eventType(ctx *gin.Context) {
 }
 
 func (h handler) event(ctx *gin.Context) {
-	cfg := hof.GetOAuthConfig()
-	var url string
-	tok := &oauth2.Token{}
-	var username string
+	var googleEvents []*calendar.Event
+	var username, googleAuthURL, microsoftAuthURL,
+		googleEmail, googleName, microsoftName, microsoftEmail string
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	googleAuthToken, microsoftAuthToken := &oauth2.Token{}, &oauth2.Token{}
+	// get user internal data
 	if uname, ok := ctx.MustGet("uname").(string); ok {
 		username = uname
 	}
-	// get user data
-	data, err := h.service.Profile(ctx, username,
-		false)
-	if err != nil || !data.Token.Valid {
-		url, tok = hof.GetOAuthTokenFromWeb(cfg)
-		if url != "" {
-			ctx.JSON(http.StatusOK, gin.H{"auth_url": url})
-			return
+	data, err := h.service.Profile(ctx, username, false)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest,
+			gin.H{"error": err.Error()})
+		return
+	}
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		if data != nil && data.GoogleToken.Valid {
+			if err = json.Unmarshal([]byte(data.GoogleToken.String), googleAuthToken); err != nil {
+				ctx.JSON(http.StatusUnprocessableEntity,
+					gin.H{"error": err.Error()})
+				return
+			}
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		if data != nil && data.MicrosoftToken.Valid {
+			if err = json.Unmarshal([]byte(data.MicrosoftToken.String), microsoftAuthToken); err != nil {
+				ctx.JSON(http.StatusUnprocessableEntity,
+					gin.H{"error": err.Error()})
+				return
+			}
+		}
+	}()
+	wg.Wait()
+	// get user google data
+	if googleAuthToken != nil {
+		cfg := hof.GetGoogleOAuthConfig()
+		if data != nil && !data.GoogleToken.Valid {
+			googleAuthURL, googleAuthToken = hof.GetGoogleOAuthTokenFromWeb(cfg)
+		}
+		if googleAuthURL == "" {
+			wg.Add(3)
+			// get user calendar data
+			go func() {
+				defer wg.Done()
+				calendarService := hof.GetGoogleCalendarService(ctx, googleAuthToken, cfg)
+				event, err := hof.GetGoogleCalendarData(calendarService)
+				if err != nil {
+					mu.Lock()
+					defer mu.Unlock()
+					ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+					return
+				}
+				mu.Lock()
+				googleEvents = event
+				mu.Unlock()
+			}()
+			// get user profile from oauth
+			go func() {
+				defer wg.Done()
+				displayName, err := hof.GetGoogleUserDisplayName(ctx, googleAuthToken, cfg)
+				if err != nil {
+					mu.Lock()
+					defer mu.Unlock()
+					ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+					return
+				}
+				mu.Lock()
+				googleName = displayName
+				mu.Unlock()
+			}()
+			// get user email from oauth
+			go func() {
+				defer wg.Done()
+				email, err := hof.GetGoogleUserEmail(ctx, googleAuthToken, cfg)
+				if err != nil {
+					mu.Lock()
+					defer mu.Unlock()
+					ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+					return
+				}
+				mu.Lock()
+				googleEmail = email
+				mu.Unlock()
+			}()
+			wg.Wait()
 		}
 	}
-	if data != nil {
-		if err = json.Unmarshal([]byte(data.Token.String), tok); err != nil {
-			ctx.JSON(http.StatusUnprocessableEntity,
-				gin.H{"error": err.Error()})
-			return
+	// get user microsoft data
+	if microsoftAuthToken != nil {
+		cfg, tid := hof.GetMicrosoftOAuthConfig()
+		if data != nil && !data.MicrosoftToken.Valid {
+			microsoftAuthURL, microsoftAuthToken = hof.GetMicrosoftOAuthTokenFromWeb(cfg)
 		}
-	}
-	// get user calendar data
-	calendarService := hof.GetCalendarService(ctx, tok, cfg)
-	event, err := hof.GetCalendarData(calendarService)
-	if err != nil {
-		ctx.JSON(http.StatusUnprocessableEntity,
-			gin.H{"error": err.Error()})
-		return
-	}
-	// get user profile from oauth
-	displayName, err := hof.GetUserDisplayName(ctx, tok, cfg)
-	if err != nil {
-		ctx.JSON(http.StatusUnprocessableEntity,
-			gin.H{"error": err.Error()})
-		return
-	}
-	email, err := hof.GetUserEmail(ctx, tok, cfg)
-	if err != nil {
-		ctx.JSON(http.StatusUnprocessableEntity,
-			gin.H{"error": err.Error()})
-		return
+		if microsoftAuthURL == "" {
+			wg.Add(1)
+			// get user profile
+			go func() {
+				defer wg.Done()
+				userData, err := hof.GetMicrosoftUserProfileFromToken(
+					ctx, microsoftAuthToken, tid)
+				if err != nil {
+					mu.Lock()
+					defer mu.Unlock()
+					ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+					return
+				}
+				mu.Lock()
+				microsoftName = userData["name"]
+				microsoftEmail = userData["email"]
+				mu.Unlock()
+			}()
+			wg.Wait()
+		}
 	}
 	//return data
 	ctx.JSON(http.StatusOK, gin.H{
-		"name":      displayName,
-		"email":     email,
-		"scheduled": event,
-		"canceled":  "",
+		"google_name":        googleName,
+		"google_email":       googleEmail,
+		"google_scheduled":   googleEvents,
+		"google_auth_url":    googleAuthURL,
+		"microsoft_auth_url": microsoftAuthURL,
+		"microsoft_name":     microsoftName,
+		"microsoft_email":    microsoftEmail,
 	})
 }
 
-func (h handler) exchange(ctx *gin.Context) {
-	cfg := hof.GetOAuthConfig()
+func (h handler) googleExchange(ctx *gin.Context) {
 	var username string
 	if uname, ok := ctx.MustGet("uname").(string); ok {
 		username = uname
 	}
+	cfg := hof.GetGoogleOAuthConfig()
 	data, err := cfg.Exchange(ctx, ctx.Query("code"))
 	if err != nil {
 		ctx.JSON(http.StatusUnprocessableEntity,
@@ -164,6 +246,28 @@ func (h handler) exchange(ctx *gin.Context) {
 		return
 	}
 	if err := h.service.SaveGoogleToken(
+		ctx, username, data,
+	); err != nil {
+		ctx.JSON(http.StatusUnprocessableEntity,
+			gin.H{"error": err.Error()})
+		return
+	}
+	ctx.Redirect(http.StatusTemporaryRedirect, "/fe/")
+}
+
+func (h handler) microsoftExchange(ctx *gin.Context) {
+	var username string
+	if uname, ok := ctx.MustGet("uname").(string); ok {
+		username = uname
+	}
+	cfg, _ := hof.GetMicrosoftOAuthConfig()
+	data, err := cfg.Exchange(ctx, ctx.Query("code"))
+	if err != nil {
+		ctx.JSON(http.StatusUnprocessableEntity,
+			gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.service.SaveMicrosoftToken(
 		ctx, username, data,
 	); err != nil {
 		ctx.JSON(http.StatusUnprocessableEntity,
@@ -184,5 +288,6 @@ func newUserHandler(
 	router.GET("/profile/availabilities", hof.Auth, h.availability)
 	router.GET("/profile/event-types", hof.Auth, h.eventType)
 	router.GET("/profile/events", hof.Auth, h.event)
-	router.GET("/profile/:provider/exchange", hof.Auth, h.exchange)
+	router.GET("/profile/google/exchange", hof.Auth, h.googleExchange)
+	router.GET("/profile/microsoft/exchange", hof.Auth, h.microsoftExchange)
 }

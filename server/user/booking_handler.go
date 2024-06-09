@@ -23,7 +23,7 @@ func (h bookingHandler) host(ctx *gin.Context) {
 			gin.H{"error": err.Error()})
 		return
 	}
-	eventTypes, err := h.service.EventType(ctx, user.ID)
+	eventTypes, err := h.service.EventType(ctx, user.ID, user.Username)
 	if err != nil {
 		ctx.JSON(http.StatusUnprocessableEntity,
 			gin.H{"error": err.Error()})
@@ -69,21 +69,21 @@ func (h bookingHandler) add(ctx *gin.Context) {
 			gin.H{"error": err.Error()})
 		return
 	}
-	eventTypes, err := h.service.EventType(ctx, user.ID)
+	eventTypes, err := h.service.EventType(ctx, user.ID, user.Username)
 	if err != nil {
 		ctx.JSON(http.StatusUnprocessableEntity,
 			gin.H{"error": err.Error()})
 		return
 	}
 	// booking
-	cfg := hof.GetOAuthConfig()
+	cfg := hof.GetGoogleOAuthConfig()
 	tok := &oauth2.Token{}
-	if err = json.Unmarshal([]byte(user.Token.String), tok); err != nil {
+	if err = json.Unmarshal([]byte(user.GoogleToken.String), tok); err != nil {
 		ctx.JSON(http.StatusUnprocessableEntity,
 			gin.H{"error": err.Error()})
 		return
 	}
-	calendarService := hof.GetCalendarService(ctx, tok, cfg)
+	calendarService := hof.GetGoogleCalendarService(ctx, tok, cfg)
 	var timezone string
 	var title string
 	var duration int
@@ -95,7 +95,7 @@ func (h bookingHandler) add(ctx *gin.Context) {
 			break
 		}
 	}
-	email, err := hof.GetUserEmail(ctx, tok, cfg)
+	email, err := hof.GetGoogleUserEmail(ctx, tok, cfg)
 	if err != nil {
 		ctx.JSON(http.StatusUnprocessableEntity,
 			gin.H{"error": err.Error()})
@@ -103,7 +103,7 @@ func (h bookingHandler) add(ctx *gin.Context) {
 	}
 	summary := fmt.Sprintf("%s between %s and %s", title, user.Username, body.Name)
 	description := fmt.Sprintf("maybe notes? %s", body.Notes)
-	event, err := hof.SetNewMeeting(calendarService, summary, description, timezone,
+	event, err := hof.SetGoogleNewMeeting(calendarService, summary, description, timezone,
 		email, body.Email, body.Date, body.Time, duration)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, err.Error())
