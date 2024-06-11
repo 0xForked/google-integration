@@ -24,6 +24,7 @@ interface BookingFormDialogProps {
     eventType?: EventType | null
     date?: Date | undefined
     time?: string | undefined
+    meetingSource?: string | undefined
     callback(): void
 }
 
@@ -53,7 +54,7 @@ export function BookingFormModal(props: BookingFormDialogProps) {
             props.username!, props.eventType!.id,
             (Math.floor(props.date!.getTime() / 1000)),
             stringTimeToInt(props.time!), data.name,
-            data.email, data.notes,
+            data.email, data.notes, props?.meetingSource
         ).then((resp) => {
             if (resp.id) {
                 navigate(`/schedule/${resp.id}`)
@@ -89,7 +90,8 @@ export function BookingFormModal(props: BookingFormDialogProps) {
                     </p>
                     <p className="text-sm font-light flex items-center">
                         <Video className="w-[12px] h-[12px] mr-2"/>
-                        Google Meet
+                        {props?.meetingSource === "google" && "Google Meet"}
+                        {props?.meetingSource === "microsoft" && "Microsoft Team"}
                     </p>
                     <p className="text-sm font-light flex items-center">
                         <Globe className="w-[12px] h-[12px] mr-2"/>

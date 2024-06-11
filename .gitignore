@@ -21,3 +21,4 @@ google.json
 google-token.json
 microsoft.json
 microsoft-token.json
+db.sqlite3

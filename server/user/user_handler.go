@@ -196,7 +196,7 @@ func (h handler) event(ctx *gin.Context) {
 	}
 	// get user microsoft data
 	if microsoftAuthToken != nil {
-		cfg, tid := hof.GetMicrosoftOAuthConfig()
+		cfg := hof.GetMicrosoftOAuthConfig()
 		if data != nil && !data.MicrosoftToken.Valid {
 			microsoftAuthURL, microsoftAuthToken = hof.GetMicrosoftOAuthTokenFromWeb(cfg)
 		}
@@ -205,8 +205,7 @@ func (h handler) event(ctx *gin.Context) {
 			// get user profile
 			go func() {
 				defer wg.Done()
-				userData, err := hof.GetMicrosoftUserProfileFromToken(
-					ctx, microsoftAuthToken, tid)
+				userData, err := hof.GetMicrosoftUserProfile(microsoftAuthToken.AccessToken)
 				if err != nil {
 					mu.Lock()
 					defer mu.Unlock()
@@ -214,8 +213,10 @@ func (h handler) event(ctx *gin.Context) {
 					return
 				}
 				mu.Lock()
-				microsoftName = userData["name"]
-				microsoftEmail = userData["email"]
+				if userData != nil {
+					microsoftName = userData["name"]
+					microsoftEmail = userData["email"]
+				}
 				mu.Unlock()
 			}()
 			wg.Wait()
@@ -260,7 +261,7 @@ func (h handler) microsoftExchange(ctx *gin.Context) {
 	if uname, ok := ctx.MustGet("uname").(string); ok {
 		username = uname
 	}
-	cfg, _ := hof.GetMicrosoftOAuthConfig()
+	cfg := hof.GetMicrosoftOAuthConfig()
 	data, err := cfg.Exchange(ctx, ctx.Query("code"))
 	if err != nil {
 		ctx.JSON(http.StatusUnprocessableEntity,

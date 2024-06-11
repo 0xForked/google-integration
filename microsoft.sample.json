@@ -2,7 +2,6 @@
   "web": {
     "client_id": "",
     "client_secret": "",
-    "tenant_id": "",
     "redirect_uri":  "http://localhost:8000/api/v1/profile/microsoft/exchange/"
   }
 }

@@ -14,6 +14,7 @@ export function Booking() {
     const [selectedEventType, setSelectedEventType] = useState<EventType | null>(null)
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
     const [selectedTime, setSelectedTime] = useState<string | undefined>(undefined)
+    const [selectedMeetingSource, setSelectedMeetingSource] = useState<string | undefined>(undefined)
     const [displayCalendarDialog, setDisplayCalendarDialog] = useState(false)
     const [displayFormDialog, setDisplayFormDialog] = useState(false)
 
@@ -38,10 +39,11 @@ export function Booking() {
         }).catch((error) => alert(error.message))
     }
 
-    const bookingForm = (date: Date, time: string)  => {
+    const bookingForm = (date: Date, time: string, meetingSource: string)  => {
         setSelectedDate(date)
         setSelectedTime(time)
         setDisplayFormDialog(true)
+        setSelectedMeetingSource(meetingSource)
     }
 
     return (<>
@@ -89,6 +91,7 @@ export function Booking() {
             date={selectedDate}
             time={selectedTime}
             display={displayFormDialog}
+            meetingSource={selectedMeetingSource}
             callback={() => setDisplayFormDialog(false)}
         />
     </>)

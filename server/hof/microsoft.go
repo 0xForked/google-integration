@@ -1,161 +1,193 @@
 package hof
 
 import (
+	"bytes"
 	"context"
-	"crypto/rsa"
-	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
-	"math/big"
 	"net/http"
 	"os"
-	"strings"
-	"sync"
+	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/microsoft"
 )
 
-type Header struct {
-	Kid string `json:"kid"`
+type MSEvent struct {
+	Subject               string          `json:"subject"`
+	Body                  MSBody          `json:"body"`
+	Start                 MSEventStartEnd `json:"start"`
+	End                   MSEventStartEnd `json:"end"`
+	Attendees             []MSAttendee    `json:"attendees"`
+	IsOnlineMeeting       bool            `json:"isOnlineMeeting"`
+	OnlineMeetingProvider string          `json:"onlineMeetingProvider"`
 }
 
-var (
-	httpClient    = &http.Client{}
-	metadataCache map[string]interface{}
-	jwksCache     map[string]interface{}
-	cacheMutex    sync.Mutex
-)
+type MSBody struct {
+	ContentType string `json:"contentType"`
+	Content     string `json:"content"`
+}
 
-func fetchJSON(
-	ctx context.Context,
-	url string,
-) (map[string]interface{}, error) {
-	req, err := http.NewRequestWithContext(
-		ctx, http.MethodGet, url, http.NoBody)
+type MSEventStartEnd struct {
+	DateTime string `json:"dateTime"`
+	TimeZone string `json:"timeZone"`
+}
+
+type MSAttendee struct {
+	EmailAddress MSEmailAddress `json:"emailAddress"`
+	Type         string         `json:"type"`
+}
+
+type MSEmailAddress struct {
+	Address string `json:"address"`
+	Name    string `json:"name"`
+}
+
+func ComposeMSMeetingData(
+	timezone, summary string,
+	date int64, timeInt, duration int,
+	menteeName, menteeMail string,
+) MSEvent {
+	loc, err := time.LoadLocation(timezone)
 	if err != nil {
-		return nil, err
+		log.Fatalf("Unable to load timezone: %v", err)
 	}
-	resp, err := httpClient.Do(req)
+	dateObj := time.Unix(date, 0).In(loc)
+	dateObj = time.Date(dateObj.Year(), dateObj.Month(), dateObj.Day(), 0, 0, 0, 0, loc)
+	dateObj = dateObj.Add(time.Duration(timeInt/100) * time.Hour)
+	dateObj = dateObj.Add(time.Duration(timeInt%100) * time.Minute)
+	endObj := dateObj.Add(time.Duration(duration) * time.Minute)
+	return MSEvent{
+		Subject: summary,
+		Start: MSEventStartEnd{
+			DateTime: dateObj.Format(time.RFC3339),
+			TimeZone: loc.String(),
+		},
+		End: MSEventStartEnd{
+			DateTime: endObj.Format(time.RFC3339),
+			TimeZone: loc.String(),
+		},
+		Attendees: []MSAttendee{
+			{
+				EmailAddress: MSEmailAddress{
+					Address: menteeMail,
+					Name:    menteeName,
+				},
+				Type: "required",
+			},
+		},
+		IsOnlineMeeting:       true,
+		OnlineMeetingProvider: "teamsForBusiness",
+	}
+}
+
+func SetMicrosoftNewCalendarEvent(
+	event MSEvent,
+	accessToken string,
+) (map[string]interface{}, error) {
+	// Convert event to JSON
+	eventJSON, err := json.Marshal(event)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error marshalling event to JSON: %s", err.Error())
+	}
+	// Make request to Microsoft Graph API to create event
+	url := "https://graph.microsoft.com/v1.0/me/calendar/events"
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(eventJSON))
+	if err != nil {
+		return nil, fmt.Errorf("error creating HTTP request: %s", err.Error())
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error making HTTP request:%s", err.Error())
 	}
 	defer func() { _ = resp.Body.Close() }()
-	body, err := io.ReadAll(resp.Body)
+	// Parse the response to get the meeting link
+	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error reading response body: %s", err.Error())
 	}
-	var data map[string]interface{}
-	if err := json.Unmarshal(body, &data); err != nil {
-		return nil, err
+	var eventData map[string]interface{}
+	if err := json.Unmarshal(responseBody, &eventData); err != nil {
+		return nil, fmt.Errorf("error unmarshalling response body: %s", err.Error())
 	}
-	return data, nil
+	return eventData, nil
 }
 
-func getCachedJSON(
-	ctx context.Context,
-	url string,
-	cache *map[string]interface{},
+func SetMicrosoftNewMeeting(
+	startDate, endDate, subject, accessToken string,
 ) (map[string]interface{}, error) {
-	cacheMutex.Lock()
-	defer cacheMutex.Unlock()
-	if *cache == nil {
-		data, err := fetchJSON(ctx, url)
-		if err != nil {
-			return nil, err
-		}
-		*cache = data
-	}
-	return *cache, nil
-}
-
-func getJWKSKey(
-	jwks map[string]interface{},
-	kid string,
-) (map[string]interface{}, error) {
-	for _, data := range jwks["keys"].([]interface{}) {
-		if k, ok := data.(map[string]interface{}); ok {
-			if k["kid"] == kid {
-				return k, nil
-			}
-		}
-	}
-	return nil, errors.New("key not found")
-}
-
-func parseRSAKey(key map[string]interface{}) (*rsa.PublicKey, error) {
-	nStr := key["n"].(string)
-	eStr := key["e"].(string)
-	nStr = strings.ReplaceAll(nStr, "_", "/")
-	nStr = strings.ReplaceAll(nStr, "-", "+")
-	nStr += "=="
-	decodedN, err := base64.StdEncoding.DecodeString(nStr)
-	if err != nil {
-		return nil, err
-	}
-	decodedE, err := base64.StdEncoding.DecodeString(eStr)
-	if err != nil {
-		return nil, err
-	}
-	publicKey := &rsa.PublicKey{
-		N: new(big.Int).SetBytes(decodedN),
-		E: int(new(big.Int).SetBytes(decodedE).Int64()),
-	}
-	return publicKey, nil
-}
-
-func GetMicrosoftUserProfileFromToken(
-	ctx context.Context,
-	token *oauth2.Token,
-	tenantID string,
-) (map[string]string, error) {
-	url := "https://login.microsoftonline.com/%s/v2.0/.well-known/openid-configuration"
-	confURL := fmt.Sprintf(url, tenantID)
-	metadata, err := getCachedJSON(ctx, confURL, &metadataCache)
-	if err != nil {
-		return nil, err
-	}
-	jwksURL := metadata["jwks_uri"].(string)
-	jwks, err := getCachedJSON(ctx, jwksURL, &jwksCache)
-	if err != nil {
-		return nil, err
-	}
-	parts := strings.Split(token.AccessToken, ".")
-	if len(parts) != 3 {
-		return nil, errors.New("invalid token format")
-	}
-	headerPart := parts[0]
-	headerJson, err := base64.RawURLEncoding.DecodeString(headerPart)
-	if err != nil {
-		return nil, err
-	}
-	var header Header
-	if err := json.Unmarshal(headerJson, &header); err != nil {
-		return nil, err
-	}
-	key, err := getJWKSKey(jwks, header.Kid)
-	if err != nil {
-		return nil, err
-	}
-	publicKey, err := parseRSAKey(key)
-	if err != nil {
-		return nil, err
-	}
-	tkn, _ := jwt.Parse(token.AccessToken, func(token *jwt.Token) (interface{}, error) {
-		return publicKey, nil
+	// Convert event to JSON
+	eventJSON, err := json.Marshal(map[string]interface{}{
+		"startDateTime": startDate,
+		"endDateTime":   endDate,
+		"subject":       subject,
 	})
-	claims := tkn.Claims.(jwt.MapClaims)
-	return map[string]string{
-		"name":  claims["name"].(string),
-		"email": claims["email"].(string),
-	}, nil
+	if err != nil {
+		return nil, fmt.Errorf("error marshalling event to JSON: %s", err.Error())
+	}
+	// Make request to Microsoft Graph API to create event
+	url := "https://graph.microsoft.com/v1.0/me/onlineMeetings"
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(eventJSON))
+	if err != nil {
+		return nil, fmt.Errorf("error creating HTTP request: %s", err.Error())
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error making HTTP request:%s", err.Error())
+	}
+	defer func() { _ = resp.Body.Close() }()
+	// Parse the response to get the meeting link
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading response body: %s", err.Error())
+	}
+	var meetingData map[string]interface{}
+	if err := json.Unmarshal(responseBody, &meetingData); err != nil {
+		return nil, fmt.Errorf("error unmarshalling response body: %s", err.Error())
+	}
+	return meetingData, nil
 }
 
-func GetMicrosoftOAuthConfig() (token *oauth2.Config, TenantID string) {
+func GetMicrosoftUserProfile(accessToken string) (map[string]string, error) {
+	url := "https://graph.microsoft.com/v1.0/me"
+	req, err := http.NewRequest("GET", url, http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("error creating http request: %s", err.Error())
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error making http request: %s", err.Error())
+	}
+	defer func() { _ = resp.Body.Close() }()
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading response body: %s", err.Error())
+	}
+	var userData map[string]interface{}
+	if err := json.Unmarshal(responseBody, &userData); err != nil {
+		return nil, fmt.Errorf("error unmarshalling response body: %s", err.Error())
+	}
+	if userData == nil {
+		return nil, nil
+	}
+	return map[string]string{
+		"name":  userData["displayName"].(string),
+		"email": userData["mail"].(string),
+	}, err
+}
+
+func GetMicrosoftOAuthConfig() *oauth2.Config {
 	b, err := os.ReadFile("microsoft.json")
 	if err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
@@ -163,8 +195,8 @@ func GetMicrosoftOAuthConfig() (token *oauth2.Config, TenantID string) {
 	type microsoftCredentials struct {
 		ClientID     string `json:"client_id"`
 		ClientSecret string `json:"client_secret"`
-		TenantID     string `json:"tenant_id"`
-		RedirectURI  string `json:"redirect_uri"`
+		//TenantID     string `json:"tenant_id"`
+		RedirectURI string `json:"redirect_uri"`
 	}
 	var j struct {
 		Web *microsoftCredentials `json:"web"`
@@ -176,16 +208,18 @@ func GetMicrosoftOAuthConfig() (token *oauth2.Config, TenantID string) {
 		ClientID:     j.Web.ClientID,
 		ClientSecret: j.Web.ClientSecret,
 		RedirectURL:  j.Web.RedirectURI,
-		Endpoint:     microsoft.AzureADEndpoint(j.Web.TenantID),
+		Endpoint:     microsoft.AzureADEndpoint(""),
 		Scopes: []string{
-			"User.Read", "email",
-			"CallEvents.Read",
-			"Calendars.ReadWrite",
+			"User.Read", "email", "openid", "profile", "offline_access",
+			"Calendars.Read", "Calendars.ReadWrite",
+			"OnlineMeetings.ReadWrite",
 		},
-	}, j.Web.TenantID
+	}
 }
 
-func GetMicrosoftOAuthTokenFromWeb(config *oauth2.Config) (string, *oauth2.Token) {
+func GetMicrosoftOAuthTokenFromWeb(
+	config *oauth2.Config,
+) (string, *oauth2.Token) {
 	authURL := config.AuthCodeURL(
 		"state", oauth2.AccessTypeOffline)
 	if authURL != "" {
@@ -201,3 +235,7 @@ func GetMicrosoftOAuthTokenFromWeb(config *oauth2.Config) (string, *oauth2.Token
 	}
 	return "", tok
 }
+
+//wt-ug: https://github.com/calcom/cal.com/blob/33d7da88bfda9375c17c4302a0c27b9f64a15d5d/packages/app-store/office365calendar/lib/CalendarService.ts
+//ms-doc: https://learn.microsoft.com/en-us/graph/api/calendar-post-events?view=graph-rest-1.0&tabs=http
+//https://learn.microsoft.com/en-us/graph/api/application-post-onlinemeetings?view=graph-rest-1.0&tabs=http

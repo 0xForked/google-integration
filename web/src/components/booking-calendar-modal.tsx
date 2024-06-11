@@ -9,13 +9,15 @@ import {Clock12, Globe, Video, X} from "lucide-react";
 import {Calendar} from "@/components/ui/calendar.tsx";
 import {Button} from "@/components/ui/button.tsx";
 import {generateTimeRange, getInitialDate, isGreaterThanMaxEndTime, isSameDay} from "@/lib/time.ts";
+import {RadioGroup, RadioGroupItem} from "@/components/ui/radio-group.tsx";
+import {Label} from "@radix-ui/react-dropdown-menu";
 
 interface BookingCalendarDialogProps {
     display: boolean
     username?: string | null
     eventType?: EventType | null
     callback(): void
-    nextStep(date: Date, time: string): void
+    nextStep(date: Date, time: string, meetingSource: string): void
 }
 
 export function BookingCalendarModal(props: BookingCalendarDialogProps) {
@@ -24,6 +26,7 @@ export function BookingCalendarModal(props: BookingCalendarDialogProps) {
     const [blockDays, setBlockDays] = useState<number[]>([])
     const [startTime, setStartTime] = useState<number>(800)
     const [endTime, setEndTime] = useState<number>(1700)
+    const [meetingSource, setMeetingSource] = useState("google")
 
     useEffect(() => {
         if (props.display && !props.eventType) {
@@ -79,7 +82,7 @@ export function BookingCalendarModal(props: BookingCalendarDialogProps) {
         return !isGreaterThanMaxEndTime(date!, endTime)
     }
 
-    const setNextStep = (time: string) =>  props.nextStep(date!, time)
+    const setNextStep = (time: string) =>  props.nextStep(date!, time, meetingSource)
 
     return (<AlertDialog open={display} onOpenChange={props.callback}>
         <AlertDialogContent className="min-w-[850px]">
@@ -109,15 +112,28 @@ export function BookingCalendarModal(props: BookingCalendarDialogProps) {
                     </p>
                     <p className="text-sm font-light flex items-center">
                         <Video className="w-[12px] h-[12px] mr-2"/>
-                        Google Meet
-                        Microsoft Team
+                        Meeting Location
                     </p>
-                    <p className="text-sm font-light flex items-center">
-                        <Globe className="w-[12px] h-[12px] mr-2"/>
-                        {props?.eventType?.availability?.timezone}
-                    </p>
-                </div>
-                <div className="px-2 col-span-2 h-96 flex w-full">
+                    <RadioGroup
+                      className="ml-6"
+                      defaultValue={meetingSource}
+                      onValueChange={(val: string) => setMeetingSource(val)}
+                    >
+                        {props?.eventType?.is_google_available &&<div className="flex items-center space-x-2">
+                            <RadioGroupItem className="w-[12px] h-[12px]" value="google" />
+                            <Label className="text-sm">Google Meet</Label>
+                        </div>}
+                        {props?.eventType?.is_microsoft_available && <div className="flex items-center space-x-2">
+                            <RadioGroupItem className="w-[12px] h-[12px]" value="microsoft"/>
+                            <Label className="text-sm">Microsoft Team</Label>
+                        </div>}
+                    </RadioGroup>
+                            <p className="text-sm font-light flex items-center">
+                                <Globe className="w-[12px] h-[12px] mr-2"/>
+                                {props?.eventType?.availability?.timezone}
+                            </p>
+                        </div>
+                        <div className="px-2 col-span-2 h-96 flex w-full">
                     <Calendar
                         mode="single"
                         selected={date}

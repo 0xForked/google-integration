@@ -120,6 +120,7 @@ const newBooking = async (
     name: string,
     email: string,
     notes?: string,
+    meeting_location?: string,
 )  => {
     try {
         const response = await fetch(
@@ -129,7 +130,7 @@ const newBooking = async (
                 credentials: 'include',
                 body: JSON.stringify({
                     username, event_type_id, date,
-                    time, name, email, notes
+                    time, name, email, notes, meeting_location
                 })
             })
         const content = await response.json();

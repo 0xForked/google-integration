@@ -8,7 +8,6 @@ import (
 
 	"github.com/0xForked/goca/server/hof"
 	"golang.org/x/oauth2"
-	"google.golang.org/api/calendar/v3"
 )
 
 type IUserService interface {
@@ -19,7 +18,7 @@ type IUserService interface {
 	SaveMicrosoftToken(ctx context.Context, username string, microsoftToken *oauth2.Token) error
 	Login(ctx context.Context, form *LoginForm) (map[string]interface{}, error)
 	Booking(ctx context.Context, uid int) (*Booking, error)
-	NewBooking(ctx context.Context, userID int, title string, form *BookingForm, event *calendar.Event) (int, error)
+	NewBooking(ctx context.Context, userID int, title string, form *BookingForm, event interface{}) (int, error)
 }
 
 type service struct {
@@ -154,7 +153,7 @@ func (s service) NewBooking(
 	userID int,
 	title string,
 	form *BookingForm,
-	event *calendar.Event,
+	event interface{},
 ) (int, error) {
 	newEvent, err := json.Marshal(event)
 	if err != nil {
@@ -170,6 +169,7 @@ func (s service) NewBooking(
 		Date:        form.Date,
 		Time:        form.Time,
 		Event:       newEvent,
+		Location:    form.MeetingLocation,
 	}
 	return s.repository.InsertBooking(ctx, &newBooking)
 }

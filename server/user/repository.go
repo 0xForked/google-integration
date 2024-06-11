@@ -225,10 +225,11 @@ func (s sqlRepository) InsertBooking(
 	ctx context.Context,
 	booking *Booking,
 ) (int, error) {
-	q := "INSERT INTO bookings (user_id, event_type_id, title, notes, name, email, date, time, event, created_at) "
-	q += "values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id"
+	q := "INSERT INTO bookings (user_id, event_type_id, title, notes, name, email, date, time, event, location, created_at) "
+	q += "values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id"
 	row := s.db.QueryRowContext(ctx, q, booking.UserID, booking.EventTypeID, booking.Title,
-		booking.Notes, booking.Name, booking.Email, booking.Date, booking.Time, booking.Event, time.Now().Unix())
+		booking.Notes, booking.Name, booking.Email, booking.Date, booking.Time,
+		booking.Event, booking.Location, time.Now().Unix())
 	var id int
 	if err := row.Scan(&id); err != nil {
 		return 0, err

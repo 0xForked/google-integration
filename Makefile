@@ -10,6 +10,10 @@ run-client:
 
 .Phony: run
 run:
+	FILE=db.sqlite3; \
+		if [ ! -f "$$FILE" ]; then \
+			cp ./db.sqlite3.example db.sqlite3; \
+		fi
 	@echo "Run Server  App"
 	go mod tidy -compat=1.22
 	go run main.go

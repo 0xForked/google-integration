@@ -76,14 +76,8 @@ func (h bookingHandler) add(ctx *gin.Context) {
 		return
 	}
 	// booking
-	cfg := hof.GetGoogleOAuthConfig()
-	tok := &oauth2.Token{}
-	if err = json.Unmarshal([]byte(user.GoogleToken.String), tok); err != nil {
-		ctx.JSON(http.StatusUnprocessableEntity,
-			gin.H{"error": err.Error()})
-		return
-	}
-	calendarService := hof.GetGoogleCalendarService(ctx, tok, cfg)
+	var summary string
+	var event interface{}
 	var timezone string
 	var title string
 	var duration int
@@ -95,18 +89,57 @@ func (h bookingHandler) add(ctx *gin.Context) {
 			break
 		}
 	}
-	email, err := hof.GetGoogleUserEmail(ctx, tok, cfg)
-	if err != nil {
-		ctx.JSON(http.StatusUnprocessableEntity,
-			gin.H{"error": err.Error()})
-		return
+	if body.MeetingLocation == "google" && user.GoogleToken.Valid {
+		cfg := hof.GetGoogleOAuthConfig()
+		tok := &oauth2.Token{}
+		if err = json.Unmarshal([]byte(user.GoogleToken.String), tok); err != nil {
+			ctx.JSON(http.StatusUnprocessableEntity,
+				gin.H{"error": err.Error()})
+			return
+		}
+		calendarService := hof.GetGoogleCalendarService(ctx, tok, cfg)
+		email, err := hof.GetGoogleUserEmail(ctx, tok, cfg)
+		if err != nil {
+			ctx.JSON(http.StatusUnprocessableEntity,
+				gin.H{"error": err.Error()})
+			return
+		}
+		summary = fmt.Sprintf("%s between %s and %s", title, user.Username, body.Name)
+		description := fmt.Sprintf("maybe notes? %s", body.Notes)
+		event, err = hof.SetGoogleNewMeeting(calendarService, summary, description, timezone,
+			email, body.Email, body.Date, body.Time, duration)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, err.Error())
+			return
+		}
 	}
-	summary := fmt.Sprintf("%s between %s and %s", title, user.Username, body.Name)
-	description := fmt.Sprintf("maybe notes? %s", body.Notes)
-	event, err := hof.SetGoogleNewMeeting(calendarService, summary, description, timezone,
-		email, body.Email, body.Date, body.Time, duration)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, err.Error())
+	if body.MeetingLocation == "microsoft" && user.MicrosoftToken.Valid {
+		tok := &oauth2.Token{}
+		if err = json.Unmarshal([]byte(user.MicrosoftToken.String), tok); err != nil {
+			ctx.JSON(http.StatusUnprocessableEntity,
+				gin.H{"error": err.Error()})
+			return
+		}
+		summary = fmt.Sprintf("%s between %s and %s", title, user.Username, body.Name)
+		eventData := hof.ComposeMSMeetingData(timezone, summary, body.Date, body.Time,
+			duration, body.Name, body.Email)
+		// limitation: Only Work for Business Account (personal account not supported)
+		//meeting, err := hof.SetMicrosoftNewMeeting(eventData.Start.DateTime, eventData.End.DateTime,
+		//	eventData.Subject, tok.AccessToken)
+		//if err != nil {
+		//	ctx.JSON(http.StatusBadRequest, err.Error())
+		//	return
+		//}
+		//meetingURL := meeting["joinWebUrl"].(string)
+		//eventData.Body = hof.MSBody{
+		//	ContentType: "HTML",
+		//	Content:     fmt.Sprintf("Does next month work for you? <br><a href=\"%s\">Join the meeting</a>", meetingURL),
+		//}
+		event, err = hof.SetMicrosoftNewCalendarEvent(eventData, tok.AccessToken)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, err.Error())
+			return
+		}
 		return
 	}
 	// insert booking data

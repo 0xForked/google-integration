@@ -4,7 +4,6 @@ import (
 	"database/sql"
 
 	"github.com/golodash/galidator"
-	"google.golang.org/api/calendar/v3"
 )
 
 type User struct {
@@ -49,17 +48,18 @@ type EventType struct {
 }
 
 type Booking struct {
-	ID          string          `json:"id"`
-	UserID      int             `json:"-"`
-	EventTypeID int             `json:"-"`
-	Title       string          `json:"title"`
-	Notes       string          `json:"notes"`
-	Name        string          `json:"name"`
-	Email       string          `json:"email"`
-	Date        int64           `json:"date"`
-	Time        int             `json:"time"`
-	Event       []byte          `json:"-"`
-	EventDetail *calendar.Event `json:"event_detail"`
+	ID          string      `json:"id"`
+	UserID      int         `json:"-"`
+	EventTypeID int         `json:"-"`
+	Title       string      `json:"title"`
+	Notes       string      `json:"notes"`
+	Name        string      `json:"name"`
+	Email       string      `json:"email"`
+	Date        int64       `json:"date"`
+	Time        int         `json:"time"`
+	Location    string      `json:"location"`
+	Event       []byte      `json:"-"`
+	EventDetail interface{} `json:"event_detail"`
 }
 
 type LoginForm struct {
@@ -76,13 +76,14 @@ func (f *LoginForm) Validate() interface{} {
 }
 
 type BookingForm struct {
-	Username    string `json:"username" form:"username"`
-	EventTypeID int    `json:"event_type_id" form:"event_type_id"`
-	Date        int64  `json:"date" form:"date"`
-	Time        int    `json:"time" form:"time"`
-	Name        string `json:"name" form:"name"`
-	Email       string `json:"email" form:"email"`
-	Notes       string `json:"notes" form:"notes"`
+	Username        string `json:"username" form:"username"`
+	EventTypeID     int    `json:"event_type_id" form:"event_type_id"`
+	Date            int64  `json:"date" form:"date"`
+	Time            int    `json:"time" form:"time"`
+	Name            string `json:"name" form:"name"`
+	Email           string `json:"email" form:"email"`
+	Notes           string `json:"notes" form:"notes"`
+	MeetingLocation string `json:"meeting_location" form:"meeting_location"`
 }
 
 func (f *BookingForm) Validate() interface{} {

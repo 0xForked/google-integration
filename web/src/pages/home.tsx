@@ -152,11 +152,11 @@ function Home() {
                 {googleScheduledEvents.map((item: any, index) => (
                   <AccordionItem className="border-b" value={item?.id} key={index}>
                     <AccordionTrigger>
-                      <div className="flex flex-col items-center gap-2">
+                      <div className="flex flex-col items-baseline gap-2">
                         <h5 className="text-sm font-bold text-gray-600">
                           {item?.summary}
                         </h5>
-                        <p className="ml-[-70px] text-xs font-light">
+                        <p className="text-xs font-light">
                           {item?.hangoutLink}
                         </p>
                       </div>
