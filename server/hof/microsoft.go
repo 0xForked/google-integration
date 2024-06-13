@@ -182,8 +182,18 @@ func GetMicrosoftUserProfile(accessToken string) (map[string]string, error) {
 		return nil, nil
 	}
 	return map[string]string{
-		"name":  userData["displayName"].(string),
-		"email": userData["mail"].(string),
+		"name": func() string {
+			if name, ok := userData["displayName"].(string); ok {
+				return name
+			}
+			return ""
+		}(),
+		"email": func() string {
+			if mail, ok := userData["mail"].(string); ok {
+				return mail
+			}
+			return ""
+		}(),
 	}, err
 }
 

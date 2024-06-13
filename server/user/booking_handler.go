@@ -98,7 +98,7 @@ func (h bookingHandler) add(ctx *gin.Context) {
 			return
 		}
 		calendarService := hof.GetGoogleCalendarService(ctx, tok, cfg)
-		email, err := hof.GetGoogleUserEmail(ctx, tok, cfg)
+		_, email, err := hof.GetGoogleUserData(ctx, tok, cfg)
 		if err != nil {
 			ctx.JSON(http.StatusUnprocessableEntity,
 				gin.H{"error": err.Error()})

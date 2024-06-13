@@ -10,47 +10,33 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/calendar/v3"
-	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/option"
 	"google.golang.org/api/people/v1"
 )
 
-func GetGoogleUserDisplayName(
+func GetGoogleUserData(
 	ctx context.Context,
 	token *oauth2.Token,
 	config *oauth2.Config,
-) (string, error) {
+) (name, email string, err error) {
 	client := config.Client(ctx, token)
 	srv, err := people.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
-		return "", fmt.Errorf("unable to retrieve Calendar client: %v", err)
+		return "", "",
+			fmt.Errorf("unable to retrieve Calendar client: %v", err)
 	}
 	profile, err := srv.People.Get("people/me").
 		PersonFields("names,emailAddresses").Do()
 	if err != nil {
-		return "", fmt.Errorf("unable to retrieve user profile: %v", err)
+		return "", "",
+			fmt.Errorf("unable to retrieve user profile: %v", err)
 	}
-	if len(profile.Names) < 0 {
-		return "", nil
+	if len(profile.Names) <= 0 && len(profile.EmailAddresses) <= 0 {
+		return "", "", nil
 	}
-	return profile.Names[0].DisplayName, nil
-}
-
-func GetGoogleUserEmail(
-	ctx context.Context,
-	token *oauth2.Token,
-	config *oauth2.Config,
-) (string, error) {
-	client := config.Client(ctx, token)
-	svc, err := gmail.NewService(context.Background(), option.WithHTTPClient(client))
-	if err != nil {
-		return "", fmt.Errorf("unable to create Gmail service: %v", err)
-	}
-	profile, err := svc.Users.GetProfile("me").Do()
-	if err != nil {
-		return "", fmt.Errorf("unable to retrieve user's profile: %v", err)
-	}
-	return profile.EmailAddress, nil
+	userDisplayName := profile.Names[0].DisplayName
+	userEmail := profile.EmailAddresses[0].Value
+	return userDisplayName, userEmail, nil
 }
 
 func SetGoogleNewMeeting(
@@ -138,7 +124,7 @@ func GetGoogleOAuthConfig() *oauth2.Config {
 		calendar.CalendarReadonlyScope,
 		calendar.CalendarEventsScope,
 		people.UserinfoProfileScope,
-		gmail.GmailReadonlyScope)
+		people.UserinfoEmailScope)
 	if err != nil {
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
 	}

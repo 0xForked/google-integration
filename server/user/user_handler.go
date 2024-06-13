@@ -147,7 +147,7 @@ func (h handler) event(ctx *gin.Context) {
 			googleAuthURL, googleAuthToken = hof.GetGoogleOAuthTokenFromWeb(cfg)
 		}
 		if googleAuthURL == "" {
-			wg.Add(3)
+			wg.Add(2)
 			// get user calendar data
 			go func() {
 				defer wg.Done()
@@ -166,7 +166,7 @@ func (h handler) event(ctx *gin.Context) {
 			// get user profile from oauth
 			go func() {
 				defer wg.Done()
-				displayName, err := hof.GetGoogleUserDisplayName(ctx, googleAuthToken, cfg)
+				displayName, emailAddress, err := hof.GetGoogleUserData(ctx, googleAuthToken, cfg)
 				if err != nil {
 					mu.Lock()
 					defer mu.Unlock()
@@ -175,20 +175,7 @@ func (h handler) event(ctx *gin.Context) {
 				}
 				mu.Lock()
 				googleName = displayName
-				mu.Unlock()
-			}()
-			// get user email from oauth
-			go func() {
-				defer wg.Done()
-				email, err := hof.GetGoogleUserEmail(ctx, googleAuthToken, cfg)
-				if err != nil {
-					mu.Lock()
-					defer mu.Unlock()
-					ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
-					return
-				}
-				mu.Lock()
-				googleEmail = email
+				googleEmail = emailAddress
 				mu.Unlock()
 			}()
 			wg.Wait()
